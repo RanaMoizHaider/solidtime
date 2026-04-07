@@ -37,6 +37,10 @@ export function canViewProjectMembers() {
     return currentUserHasPermission('project-members:view');
 }
 
+export function canViewTasks() {
+    return currentUserHasPermission('tasks:view');
+}
+
 export function canCreateTasks() {
     return currentUserHasPermission('tasks:create');
 }

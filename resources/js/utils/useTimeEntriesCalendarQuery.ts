@@ -2,8 +2,8 @@ import { useQuery } from '@tanstack/vue-query';
 import { api, type TimeEntryResponse, type TimeEntry } from '@/packages/api/src';
 import { getCurrentMembershipId, getCurrentOrganizationId } from '@/utils/useUser';
 import { computed, type Ref } from 'vue';
-import { getDayJsInstance } from '@/packages/ui/src/utils/time';
-import { getUserTimezone, getWeekStart } from '@/packages/ui/src/utils/settings';
+import { getDayJsInstance, localDateToUtc } from '@/packages/ui/src/utils/time';
+import { getWeekStart } from '@/packages/ui/src/utils/settings';
 
 const weekStartMap: Record<string, number> = {
     sunday: 0,
@@ -31,14 +31,9 @@ export function getExpandedCalendarDateRange(
     // Calculate next period
     const nextEnd = dayjs(calendarEnd).add(duration, 'milliseconds');
 
-    // Apply timezone transformations
-    const timezone = getUserTimezone();
-    const formattedStart = previousStart.utc().tz(timezone, true).utc().format();
-    const formattedEnd = nextEnd.utc().tz(timezone, true).utc().format();
-
     return {
-        start: formattedStart,
-        end: formattedEnd,
+        start: localDateToUtc(previousStart.toDate()),
+        end: localDateToUtc(nextEnd.toDate()),
     };
 }
 
