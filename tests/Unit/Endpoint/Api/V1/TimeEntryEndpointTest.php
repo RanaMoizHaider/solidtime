@@ -2490,6 +2490,47 @@ class TimeEntryEndpointTest extends ApiEndpointTestAbstract
         $response->assertForbidden();
     }
 
+    public function test_update_endpoint_fails_if_time_entry_belongs_to_different_organization_than_url_even_with_update_all_permission(): void
+    {
+        // Arrange
+        // Attacker: has `time-entries:update:all` in their own organization (orgA).
+        $data = $this->createUserWithPermission([
+            'time-entries:update:all',
+            'projects:view:all',
+        ]);
+        $attackerProject = Project::factory()->forOrganization($data->organization)->create();
+
+        // Victim: entirely separate organization (orgB). Attacker has NO membership in orgB.
+        $victimOrgData = $this->createUserWithPermission([], true);
+        $victimTimeEntry = TimeEntry::factory()
+            ->forOrganization($victimOrgData->organization)
+            ->forMember($victimOrgData->ownerMember)
+            ->create([
+                'description' => 'victim-original',
+                'project_id' => null,
+                'task_id' => null,
+            ]);
+
+        Passport::actingAs($data->user);
+
+        // Act: PUT to /organizations/{orgA}/time-entries/{victim_uuid} — URL org is attacker's
+        // own org, but the route-bound time entry belongs to orgB.
+        $response = $this->putJson(route('api.v1.time-entries.update', [$data->organization->getKey(), $victimTimeEntry->getKey()]), [
+            'description' => 'attacker-overwrite',
+            'project_id' => $attackerProject->getKey(),
+        ]);
+
+        // Assert: must be rejected. Before the fix this returned 200 and rewrote the
+        // victim row with attacker's project_id while keeping organization_id = orgB.
+        $response->assertForbidden();
+        $this->assertDatabaseHas(TimeEntry::class, [
+            'id' => $victimTimeEntry->getKey(),
+            'organization_id' => $victimOrgData->organization->getKey(),
+            'description' => 'victim-original',
+            'project_id' => null,
+        ]);
+    }
+
     public function test_update_endpoint_fails_if_user_has_no_permission_to_update_time_entries_for_other_users_in_organization(): void
     {
         // Arrange
